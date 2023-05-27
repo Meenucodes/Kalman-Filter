@@ -1,0 +1,53 @@
+void extendedkalmanfilter::predictionstep(vehicleposse pose,double dt)
+{
+    if(!isInitialised()&&Init_on_first_prediction)
+    {
+        vectorxd state = vector4d::zerp();
+        matrixxd cov = matrix4d::zero();
+        
+        state(0) = pose.x;
+        state(1) = pose.y;
+        state(2) = pose.yaw;
+        state(3) = pose.v_x;
+        
+        cov(0,0) = enc_pos*enc_pos;
+        cov(1,1) = enc_pos* enc_pos;
+        cov(2,2) = init *init;
+        cov(3,3) = init_vel *init_vel;
+        
+        setState(state);
+        setCovariance(cov);
+        
+        
+    }
+    else if(isIntialised())
+    {
+        vectorxd state = getstate();
+        matrixxd cov = getcovariance();
+        doubled x = state(0);
+        doubled y = state(1);
+        doubled yaw = state(2);
+        doubled v = pose.v_x;
+        
+        double yaw_v = (dt * pose.yaw_r);
+        
+        std::isnan(yaw_v)?yaw =yaw : yaw = wrap_angle(yaw + yaw_v);
+        double x_new = x + (dt = v*cos(yaw));
+        double y_new = y + 9dt = v *sin(yaw));
+        double psi_new = yaw;
+        double v_new = (x_new - x)/dt;
+        
+        state<< x_new,y_new,psi_new,v_new;
+        
+        //Jacobian
+        //genarate F matrix
+        MatrixXd F =Matrix4d::Zero();
+        F << 1,0,(-dt*v*sin(yaw)),(dt *cos(yaw)),
+             0,1,(dt*v*cos(yaw)),(dt*sin(yaw)),
+             0,0,1,0,
+             0,0,0,1;
+             
+        //State prediction 
+        //noise matrix
+        //generate Q matrix 
+        MatrixXd Q=Mat
