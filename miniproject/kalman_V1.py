@@ -1,11 +1,28 @@
 import numpy as np
 
 
-def wrap_angle(angle):
-        #check if given angle is greater than 360 degree (mode operation),
-        #if angle is less than -pi angle = angle + 2*pi
-        #if angle is greater than pi angle = angle - 2*pi
-    pass
+def wrap_angle(angle, unit):
+    if unit == 'radians':
+        angle_degrees = math.degrees(angle)
+    elif unit == 'degrees':
+        angle_degrees = angle
+    else:
+        raise ValueError("Invalid unit. Please choose 'radians' or 'degrees'.")
+
+    angle_degrees %= 360
+
+    if angle_degrees < 0:
+        angle_degrees += 360
+    elif angle_degrees > 360:
+        angle_degrees -= 360
+
+    if unit == 'radians':
+        angle_result = math.radians(angle_degrees)
+    else:
+        angle_result = angle_degrees
+
+    return angle_result
+   
 
 class Kalman_filter:
     def __init__(self,x=0,y=0,z=0,yaw=0,vx=0,vy=0,vz=0,yaw_rate=0):
