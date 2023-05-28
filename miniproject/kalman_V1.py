@@ -83,8 +83,33 @@ class Kalman_filter:
             setCovariance(cov)
                         
                 
-    def handle_wheelenco_measurement(wheel_pose,dt):
-        pass
+    def handle_wheelenco_measurement(self, whlpose, dt):
+        if self.isInitialised():
+            state = self.getState()
+            cov = self.getCovariance()
+
+            z = np.zeros(4)
+            z[0], z[1], z[2], z[3] = whlpose.x, whlpose.y, whlpose.yaw, 0
+
+            z_hat = np.zeros(4)
+            z_hat[0], z_hat[1], z_hat[2], z_hat[3] = state[0], state[1], state[2], 0
+
+            H = np.zeros((4, 4))
+            H[0, 0], H[1, 1], H[2, 2], H[3, 3] = 1, 1, 1, 0
+
+            R = np.zeros((4, 4))
+            WHL_ENC_POS_STD = 0.1  # assuming a value for WHL_ENC_POS_STD
+            R[0, 0], R[1, 1], R[2, 2] = WHL_ENC_POS_STD, WHL_ENC_POS_STD, WHL_ENC_POS_STD
+            y = z - z_hat
+            S = H @ cov @ H.T + R
+            K = cov @ H.T @ np.linalg.inv(S)
+
+            state = state + K @ y
+            cov = (np.identity(4) - K @ H) @ cov
+
+            self.setState(state)
+            self.setCovariance(cov)
+
     
     def handle_amcl_measurement(amcl_pose,dt):
         pass
