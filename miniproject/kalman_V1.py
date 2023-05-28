@@ -87,32 +87,62 @@ class Kalman_filter:
         if self.isInitialised():
             state = self.getState()
             cov = self.getCovariance()
-
+        
             z = np.zeros(4)
             z[0], z[1], z[2], z[3] = whlpose.x, whlpose.y, whlpose.yaw, 0
-
+        
             z_hat = np.zeros(4)
             z_hat[0], z_hat[1], z_hat[2], z_hat[3] = state[0], state[1], state[2], 0
-
+        
             H = np.zeros((4, 4))
             H[0, 0], H[1, 1], H[2, 2], H[3, 3] = 1, 1, 1, 0
-
+        
             R = np.zeros((4, 4))
-            WHL_ENC_POS_STD = 0.1  # assuming a value for WHL_ENC_POS_STD
-            R[0, 0], R[1, 1], R[2, 2] = WHL_ENC_POS_STD, WHL_ENC_POS_STD, WHL_ENC_POS_STD
+            R[0, 0], R[1, 1], R[2, 2] = WHL_ENC_POS_STD ** 2, WHL_ENC_POS_STD ** 2, WHL_ENC_POS_STD ** 2
+        
             y = z - z_hat
             S = H @ cov @ H.T + R
             K = cov @ H.T @ np.linalg.inv(S)
-
+        
             state = state + K @ y
             cov = (np.identity(4) - K @ H) @ cov
-
+        
             self.setState(state)
             self.setCovariance(cov)
 
+
     
-    def handle_amcl_measurement(amcl_pose,dt):
-        pass
+    def handle_AMCL_measurement(self, amcl_pose, dt):
+        if self.is_initialised():
+            state = self.get_state()
+            cov = self.get_covariance()
+        
+            z = np.zeros(2)
+            z[0] = amcl_pose.x
+            z[1] = amcl_pose.y
+        
+            z_hat = np.zeros(2)
+            z_hat[0] = state[0]
+            z_hat[1] = state[1]
+        
+            H = np.zeros((2, 4))
+            H[0, 0] = 1
+            H[1, 1] = 1
+        
+            R = np.zeros((2, 2))
+            R[0, 0] = AMCL_STD * AMCL_STD
+            R[1, 1] = AMCL_STD * AMCL_STD
+        
+            y = z - z_hat
+            S = np.dot(np.dot(H, cov), H.T) + R
+            K = np.dot(np.dot(cov, H.T), np.linalg.inv(S))
+        
+            state = state + np.dot(K, y)
+            cov = np.dot((np.identity(4) - np.dot(K, H)), cov)
+        
+            self.set_state(state)
+            self.set_covariance(cov)
+
     
     def handle_indoorgps_measurement(gps_pose,dt):
         pass
