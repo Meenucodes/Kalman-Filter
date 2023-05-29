@@ -1,14 +1,6 @@
 import numpy as np
 import math as math
 
-GAZEBO_ODOM = 20
-ENCODER_POS = 5
-WHEEL_ENCODER_POS = 1
-VEL_STD = 10
-PSI_STD = 1
-INDOOR_GPS_STD = 20
-AMCL_STD = 10
-ACCEL_STD = 10
 
 def wrap_angle(angle):
         #check if given angle is greater than 360 degree (mode operation),
@@ -29,43 +21,39 @@ class Kalman_filter:
         self.y = y
         self.z = z
         self.yaw = yaw
-        self.state = np.array([1, 2, 0, 0.5])
-        self.cov = np.array([[25, 0, 0, 0], [0,25,0, 0], [0,0, 1, 0], [0, 0, 0, 100]])
         self.vx = vx
         self.vy = vy
         self.vz = vz
         self.yaw_rate = yaw_rate
-        self.is_initialized = True
+        self.is_initialized = False
         pass
     
     
-    def getState(self):  
-        return self.state
-    
-    def getCovariance(self):
-        return self.cov
+    def get_vehicle_state():  
+            state = getState()
+            return state 
+ 
     """ If the vehicle is initialized, it calls the getState
     to get the vehicle's current state, 
     which is a tuple of four values representing 
     the vehicle's position and velocity."""       
 
-
-    def getVehicleState(self):                              
+    """ def getVehicleState(self):                              
         if self.is_initialized:
             state = self.getState()
-            psi = math.atan2(state[3], state[2])     #returns the angle between the x-axis and the vector (state[3], state[2]),                                         #which represents the vehicle's velocity in the x-y plane
-            V = math.sqrt(state[2]**2 + state[3]**2)  #returns the magnitude of velocity vector
-            self.state = [state[0], state[1], psi, V]   
-            return self.state
-        return self.getVehicleState(self)
- 
+            psi = math.atan2(state[3], state[2])     #returns the angle between the x-axis and the vector (state[3], state[2]),
+                                                        #which represents the vehicle's velocity in the x-y plane
+            V = math.sqrt(state[2]**2 + state[3]**2)    #returns the magnitude of velocity vector
+            return State(state[0], state[1], psi, V)
+        return VehicleState()
+ """
 
     
     
-    def get_vehicle_state_posecovariance(self):
+    def get_vehicle_state_posecovariance():
         pos_cov = np.zeros((2,2))
-        cov = self.getCovariance()
-        if self.is_intialized and cov.size != 0:
+        cov = getCovariance()
+        if is_intialized() and cov.size != 0:
             pos_cov[0,0] = cov[0,0]
             pos_cov[0,1] = cov[0,1]
             pos_cov[1,0] = cov[1,0]
@@ -78,27 +66,27 @@ class Kalman_filter:
     the transpose of the state transition matrix, 
     and adds the process noise covariance matrix to the predicted covariance matrix."""
     def predictionstep(self, pose, dt):                 #predicts nxt step based on current state and time.
-        if not self.is_initialized and self.Init_on_first_prediction:
+        if not self.is_initialized() and self.Init_on_first_prediction:
             state = np.zeros(4)
             cov = np.zeros((4,4))
-            state[0] = pose[0]
-            state[1] = pose[1]
-            state[2] = pose[2]
-            state[3] = pose[3]
-            cov[0,0] = ENCODER_POS**2
-            cov[1,1] = ENCODER_POS**2
-            cov[2,2] = PSI_STD**2
-            cov[3,3] = PSI_STD**2
-            self.state = state
-            self.cov = cov
-        elif self.is_initialized:
-            state = self.getState()
-            cov = self.getCovariance()
+            state[0] = pose.x
+            state[1] = pose.y
+            state[2] = pose.yaw
+            state[3] = pose.v_x
+            cov[0,0] = enc_pos**2
+            cov[1,1] = enc_pos**2
+            cov[2,2] = init_psi**2
+            cov[3,3] = init_vel**2
+            self.setState(state)
+            self.setCovariance(cov)
+        elif self.isInitialised():
+            state = self.getstate()
+            cov = self.getcovariance()
             x = state[0]
             y = state[1]
             yaw = state[2]
-            v = pose[3]
-            yaw_v = dt * pose[2]
+            v = pose.v_x
+            yaw_v = dt * pose.yaw_r
             yaw = yaw if np.isnan(yaw_v) else wrap_angle(yaw + yaw_v)
             x_new = x + dt * v * np.cos(yaw)
             y_new = y + dt * v * np.sin(yaw)
@@ -114,18 +102,18 @@ class Kalman_filter:
                 [0, 0, 0, 1]]
 
             Q = np.zeros((4,4))  #Q= noise covariance matrix
-            Q[0,0] = ENCODER_POS**2
-            Q[1,1] = ENCODER_POS**2
-            Q[2,2] = ENCODER_POS**2
-            Q[3,3] = ACCEL_STD**2
+            Q[0,0] = enc_pos**2
+            Q[1,1] = enc_pos**2
+            Q[2,2] = enc_pos**2
+            Q[3,3] = accel**2
 
             #multiplies the old covariance matrix by the system's state transition matrix
             #calculates the transpose of the system's state transition matrix.
             #adds the process noise covariance matrix to thepredicted covariance matrix. The result is the new covariance matrix of the system's state estimate.
             cov = F @ cov @ np.transpose(F) + Q   #cov= old covariance matrix
                                                 
-            self.state = state
-            self.cov = cov
+            setState(state)
+            setCovariance(cov)
                         
     """first checks if the Kalman filter has been initialized, 
     and if so, retrieves the current state and covariance."""          
@@ -135,40 +123,37 @@ class Kalman_filter:
             cov = self.getCovariance()
         
             z = np.zeros(4)          #creates a measurement vector z using the wheel pose measurement and the current state
-            z[0], z[1], z[2], z[3] = whlpose[0], whlpose[1], whlpose[2], 0
+            z[0], z[1], z[2], z[3] = whlpose.x, whlpose.y, whlpose.yaw, 0
         
             z_hat = np.zeros(4)         #creates a predicted measurement matrix z_hat
             z_hat[0], z_hat[1], z_hat[2], z_hat[3] = state[0], state[1], state[2], 0
         
             H = np.zeros((4, 4))        #H=jacobian of measurement function wrt state
-            H[0, 0], H[1, 1], H[2,2], H[3,3] = 1, 1, 1, 1
+            H[0, 0], H[1, 1], H[2, 2], H[3, 3] = 1, 1, 1, 0
         
             R = np.zeros((4, 4))       #measurement noise matrix
-            R[0, 0], R[1, 1], R[2,2]= WHEEL_ENCODER_POS ** 2, WHEEL_ENCODER_POS ** 2, WHEEL_ENCODER_POS ** 2,
+            R[0, 0], R[1, 1], R[2, 2] = WHL_ENC_POS_STD ** 2, WHL_ENC_POS_STD ** 2, WHL_ENC_POS_STD ** 2
         
             y = z - z_hat                       #y=measurement residual
-            print(H @ cov)
             S = H @ cov @ H.T + R               #S=innovation covariance matrix
-            
             K = cov @ H.T @ np.linalg.inv(S)   #K=kalman gain
-            print(K, y)
+        
             state = state + K @ y
             cov = (np.identity(4) - K @ H) @ cov
-            print("state", state, 'covariance', cov)
-            self.state = state
-            self.cov = cov
-            return True
+        
+            self.setState(state)
+            self.setCovariance(cov)
 
 
 
     def handle_AMCL_measurement(self, amcl_pose, dt):
-        if self.is_initialized:
-            state = self.getState()
-            cov = self.getCovariance()
+        if self.is_initialised():
+            state = self.get_state()
+            cov = self.get_covariance()
         
             z = np.zeros(2)
-            z[0] = amcl_pose[0]
-            z[1] = amcl_pose[1]
+            z[0] = amcl_pose.x
+            z[1] = amcl_pose.y
         
             z_hat = np.zeros(2)
             z_hat[0] = state[0]
@@ -179,8 +164,8 @@ class Kalman_filter:
             H[1, 1] = 1
         
             R = np.zeros((2, 2))
-            R[0, 0] = AMCL_STD**2
-            R[1, 1] = AMCL_STD**2
+            R[0, 0] = AMCL_STD * AMCL_STD
+            R[1, 1] = AMCL_STD * AMCL_STD
         
             y = z - z_hat
             S = np.dot(np.dot(H, cov), H.T) + R
@@ -188,18 +173,19 @@ class Kalman_filter:
         
             state = state + np.dot(K, y)
             cov = np.dot((np.identity(4) - np.dot(K, H)), cov)
-            print("state", state, 'covariance', cov)
-            self.state = state
-            self.cov = cov
+        
+            self.set_state(state)
+            self.set_covariance(cov)
             return True
+ 
     
     def handle_indoorgps_measurement(self,gps_pose,dt):
-            if self.is_initialized:
+            if self.isIntialized():
                 state = self.getState()
                 cov = self.getCovariance()
                 
                 z = np.zeros(2)
-                z[0], z[1] = gps_pose[0], gps_pose[1]
+                z[0], z[1] = gps_pose.x, gps_pose.y
                 
                 z_hat = np.zeros(2)
                 z_hat[0], z_hat[1] = state[0], state[1]
@@ -208,8 +194,8 @@ class Kalman_filter:
                 H[0,0], H[0,1], H[1,0], H[1,1] = 1, 0, 0, 1
                 
                 R = np.zeros((2,2))
-                R[0,0] = INDOOR_GPS_STD**2
-                R[1,1] = INDOOR_GPS_STD**2
+                R[0,0] = gps_pose**2
+                R[1,1] = gps_pose**2
                 
                 y = z - z_hat
                 S = H @ cov @ H.T + R
@@ -217,19 +203,18 @@ class Kalman_filter:
                 
                 state = state + K @ y
                 cov = (np.identity(4) - K @ H) @ cov
-                print("state", state, 'covariance', cov)
-                self.state = state
-                self.cov = cov
-                return True
+                
+                self.setState(state)
+                self.setCovariance(cov)
     
     
-    def handle_GazeboOdomMeasurement(self, gazebo_pos, dt):
-        if self.is_initialized:
+    def handleGazeboOdomMeasurement(self, gazebo_pos, dt):
+        if self.isIntialized():
             state = self.getState()
             cov = self.getCovariance()
             
             z = np.zeros(2)
-            z[0], z[1] = gazebo_pos[0], gazebo_pos[1]
+            z[0], z[1] = gazebo_pos.x, gazebo_pos.y
             
             z_hat = np.zeros(2)
             z_hat[0], z_hat[1] = state[0], state[1]
@@ -238,8 +223,8 @@ class Kalman_filter:
             H[0,0], H[0,1], H[1,0], H[1,1] = 1, 0, 0, 1
             
             R = np.zeros((2,2))
-            R[0,0] = GAZEBO_ODOM**2 #constant
-            R[1,1] = GAZEBO_ODOM**2
+            R[0,0] = gazebo_pos**2
+            R[1,1] = gazebo_pos**2
             
             y = z - z_hat
             S = H @ cov @ H.T + R
@@ -247,12 +232,18 @@ class Kalman_filter:
             
             state = state + K @ y
             cov = (np.identity(4) - K @ H) @ cov
-            print("state", state, 'covariance', cov)
-            self.state = state
-            self.cov = cov
-            return True
+            self.setState(state)
+            self.setCovariance(cov)
+
+    
+    def is_kf_initialized(self):
+        return self.is_initialized
+        
+print("hello world")
 
 kf = Kalman_filter()
-pose = np.array((0.5, 0.2, 0, 0.05))
+print(kf.is_kf_initialized())
+wheel_pose = np.array((0.5, 0.2, 0, 0.05))
 dt =0.1
-print(kf.handle_GazeboOdomMeasurement(pose, dt))
+kf.handle_wheelenco_measurement(wheel_pose, dt)
+print(kf.getVehicleState())
