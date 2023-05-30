@@ -44,7 +44,7 @@ class Kalman_filter:
         self.vx = vx
         self.vy = vy
         self.vz = vz
-        #self.yaw_rate = yaw_rate
+        self.yaw_rate = yaw_rate
         self.is_initialized = True
         
     
@@ -108,15 +108,14 @@ class Kalman_filter:
             y = state[1]
             yaw = state[2]
             v = self.vx
-            yaw_v = dt * state[3]
+            yaw_v = dt * self.yaw_rate
             yaw = yaw if np.isnan(yaw_v) else wrap_angle(yaw + yaw_v)
             x_new = x + dt * v * np.cos(yaw)
             y_new = y + dt * v * np.sin(yaw)
             psi_new = yaw
             v_new = (x_new - x) / dt
-            state = np.array([x_new, y_new, psi_new, v_new]).reshape(4,1)
+            state = np.array([x_new, y_new, psi_new, v_new])
             print(state)
-            exit()
             #self.setState(state)
 
             F = np.zeros((4,4))     #state transition matrix generation     #updates the state and cov using motion model and noise model.
